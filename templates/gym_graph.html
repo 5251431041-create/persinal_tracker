@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>{{ exercise }} - Progression</h1>
+
+<section class="card">
+  <img src="{{ url_for('static', filename='graphs/' + graph_file) }}"
+       alt="Graph" style="max-width:100%; border-radius:6px;">
+</section>
+
+<a href="/gym" class="back-link">Back to Gym</a>
+
+{% endblock %}

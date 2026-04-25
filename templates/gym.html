@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Gym Tracker</h1>
+
+<section class="card">
+  <h2>Log a Workout</h2>
+  <form method="POST" action="/gym">
+    <div class="form-row">
+      <label>Date<input type="date" name="date" required></label>
+      <label>Exercise<input type="text" name="exercise" placeholder="e.g. Bench Press" required></label>
+    </div>
+    <div class="form-row">
+      <label>Weight (kg)<input type="number" name="weight" step="0.5" placeholder="60" required></label>
+      <label>Reps<input type="number" name="reps" placeholder="8" required></label>
+      <label>Sets<input type="number" name="sets" placeholder="3" required></label>
+    </div>
+    <button type="submit">Save</button>
+  </form>
+</section>
+
+{% if exercises %}
+<section class="card">
+  <h2>Progression Graph</h2>
+  <form method="GET" action="/gym/graph" class="inline-form">
+    <label>Exercise
+      <select name="exercise">
+        {% for ex in exercises %}
+          <option value="{{ ex }}">{{ ex }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Show Graph</button>
+  </form>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Past Workouts</h2>
+  {% if logs %}
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Exercise</th><th>Weight (kg)</th><th>Reps</th><th>Sets</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for entry in logs | reverse %}
+      <tr>
+        <td>{{ entry.date }}</td>
+        <td>{{ entry.exercise }}</td>
+        <td>{{ entry.weight }}</td>
+        <td>{{ entry.reps }}</td>
+        <td>{{ entry.sets }}</td>
+        <td>
+          <form method="POST" action="/gym/delete/{{ loop.index0 }}">
+            <button type="submit" class="btn-delete">X</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No workouts logged yet.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

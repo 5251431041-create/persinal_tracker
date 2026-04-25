@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Study Tracker</h1>
+
+<!-- ADD TOPIC -->
+<section class="card">
+  <h2>Add a Topic</h2>
+  <form method="POST" action="/study">
+    <input type="hidden" name="action" value="add">
+    <div class="form-row">
+      <label>Subject<input type="text" name="subject" placeholder="e.g. Maths" required></label>
+      <label>Topic<input type="text" name="topic" placeholder="e.g. Integration" required></label>
+      <label>Date<input type="date" name="date" required></label>
+    </div>
+    <label style="max-width:400px;">Notes (optional)<input type="text" name="notes" placeholder="Any short note"></label>
+    <button type="submit">Add Topic</button>
+  </form>
+</section>
+
+<!-- SUBJECT PROGRESS -->
+{% if progress %}
+<section class="card">
+  <h2>Subject Progress</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Subject</th>
+        <th>Topics</th>
+        <th>Fully Done</th>
+        <th>Lessons Done</th>
+        <th>Overall</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for subj, p in progress.items() %}
+      <tr>
+        <td>{{ subj }}</td>
+        <td>{{ p.topics }}</td>
+        <td>{{ p.complete_topics }} / {{ p.topics }}</td>
+        <td>{{ p.done_lessons }} / {{ p.total_lessons }}</td>
+        <td>
+          {% if p.total_lessons > 0 %}
+            {% set pct = ((p.done_lessons / p.total_lessons) * 100) | round | int %}
+            <div class="bar-bg">
+              <div class="bar-fill" style="width:{{ pct }}%"></div>
+            </div>
+            {{ pct }}%
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<!-- FILTER -->
+<section class="card">
+  <h2>Filter</h2>
+  <form method="GET" action="/study" class="inline-form">
+    <label>Subject
+      <select name="subject">
+        <option value="All" {% if filter_subject=='All' %}selected{% endif %}>All</option>
+        {% for s in subjects %}
+          <option value="{{ s }}" {% if filter_subject==s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Status
+      <select name="status">
+        <option value="All"        {% if filter_status=='All'        %}selected{% endif %}>All</option>
+        <option value="incomplete" {% if filter_status=='incomplete' %}selected{% endif %}>Incomplete</option>
+        <option value="complete"   {% if filter_status=='complete'   %}selected{% endif %}>Complete</option>
+      </select>
+    </label>
+    <button type="submit">Filter</button>
+  </form>
+</section>
+
+<!-- TOPIC LIST -->
+<section class="card">
+  <h2>Topics</h2>
+  {% if displayed %}
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Subject</th>
+        <th>Topic</th>
+        <th>L1</th><th>L2</th><th>L3</th><th>L4</th><th>L5</th>
+        <th>Done</th>
+        <th>Notes</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for idx, entry, done_count in displayed %}
+      <tr>
+        <td>{{ entry.date }}</td>
+        <td>{{ entry.subject }}</td>
+        <td>{{ entry.topic }}</td>
+
+        <!-- One button per lesson — clicking toggles done/not done -->
+        {% for lesson_i in range(5) %}
+        <td>
+          <form method="POST" action="/study">
+            <input type="hidden" name="action"       value="toggle_lesson">
+            <input type="hidden" name="index"        value="{{ idx }}">
+            <input type="hidden" name="lesson_index" value="{{ lesson_i }}">
+            <button type="submit"
+                    class="lesson-btn {% if entry.lessons[lesson_i] %}lesson-done{% else %}lesson-todo{% endif %}">
+              {% if entry.lessons[lesson_i] %}✓{% else %}○{% endif %}
+            </button>
+          </form>
+        </td>
+        {% endfor %}
+
+        <!-- done count badge -->
+        <td>
+          <span class="badge {% if done_count == 5 %}badge-green{% elif done_count > 0 %}badge-yellow{% else %}badge-grey{% endif %}">
+            {{ done_count }}/5
+          </span>
+        </td>
+
+        <td style="font-size:13px; color:#666;">{{ entry.notes if entry.notes else '-' }}</td>
+
+        <td>
+          <form method="POST" action="/study">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="index"  value="{{ idx }}">
+            <button type="submit" class="btn-delete">X</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No topics match this filter.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

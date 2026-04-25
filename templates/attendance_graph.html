@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Attendance Trend</h1>
+
+<section class="card">
+  <img src="{{ url_for('static', filename='graphs/' + graph_file) }}"
+       alt="Attendance trend" style="max-width:100%; border-radius:6px;">
+  <p style="color:#888; font-size:13px; margin-top:8px;">Red dashed line = 75% threshold.</p>
+</section>
+
+<a href="/attendance" class="back-link">Back to Attendance</a>
+
+{% endblock %}

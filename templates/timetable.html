@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Timetable Setup</h1>
+<p style="color:#666; margin-bottom:16px; font-size:14px;">
+  Enter how many classes you have on each day. This is used to auto-fill "scheduled" when logging attendance.
+</p>
+
+<section class="card">
+  <h2>Classes Per Day</h2>
+  <form method="POST" action="/attendance/timetable">
+    <table>
+      <thead>
+        <tr><th>Day</th><th>Number of Classes</th></tr>
+      </thead>
+      <tbody>
+        {% for day in days %}
+        <tr>
+          <td>{{ day }}</td>
+          <td><input type="number" name="{{ day }}" value="{{ timetable[day] }}" min="0" max="20" style="width:80px;"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <button type="submit">Save Timetable</button>
+  </form>
+</section>
+
+<a href="/attendance" class="back-link">Back to Attendance</a>
+
+{% endblock %}
