@@ -297,6 +297,33 @@ def export_data():
     )
 
 
+@app.route('/import', methods=['GET', 'POST'])
+@login_required
+def import_data():
+    if request.method == 'POST':
+        upload = request.files.get('backup')
+        if not upload:
+            flash('Choose a backup JSON file.', 'error')
+            return redirect(url_for('import_data'))
+        try:
+            payload = json.load(upload.stream)
+            mapping = {
+                'gym_log': 'gym_log.json',
+                'gym_plan': 'gym_plan.json',
+                'attendance': 'attendance.json',
+                'timetable': 'timetable.json',
+                'study': 'study.json',
+            }
+            for key, filename in mapping.items():
+                if key in payload:
+                    write_json(filename, payload[key])
+            flash('Backup imported.', 'ok')
+            return redirect(url_for('dashboard'))
+        except (TypeError, json.JSONDecodeError):
+            flash('That backup file is not valid JSON.', 'error')
+    return render_template('import.html')
+
+
 @app.route('/gym', methods=['GET', 'POST'])
 @login_required
 def gym():
