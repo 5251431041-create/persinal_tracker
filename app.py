@@ -108,27 +108,44 @@ def db_connect():
     return conn
 
 
+def db_ready():
+    try:
+        with db_connect():
+            return True
+    except sqlite3.Error:
+        return False
+
+
 def mirror_json_file(name: str, data) -> None:
-    tmp = data_path(f'{name}.tmp')
-    with tmp.open('w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2)
-    tmp.replace(data_path(name))
+    try:
+        tmp = data_path(f'{name}.tmp')
+        with tmp.open('w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+        tmp.replace(data_path(name))
+    except OSError:
+        pass
 
 
 def log_event(event_type: str, detail) -> None:
-    with db_connect() as conn:
-        conn.execute(
-            'INSERT INTO events (type, detail, created_at) VALUES (?, ?, ?)',
-            (event_type, json.dumps(detail), datetime.now().isoformat(timespec='seconds')),
-        )
-        conn.commit()
+    try:
+        with db_connect() as conn:
+            conn.execute(
+                'INSERT INTO events (type, detail, created_at) VALUES (?, ?, ?)',
+                (event_type, json.dumps(detail), datetime.now().isoformat(timespec='seconds')),
+            )
+            conn.commit()
+    except sqlite3.Error:
+        pass
 
 
 def read_json(name: str):
-    with db_connect() as conn:
-        row = conn.execute('SELECT data FROM documents WHERE name = ?', (name,)).fetchone()
-        if row:
-            return json.loads(row['data'])
+    try:
+        with db_connect() as conn:
+            row = conn.execute('SELECT data FROM documents WHERE name = ?', (name,)).fetchone()
+            if row:
+                return json.loads(row['data'])
+    except sqlite3.Error:
+        pass
 
     path = data_path(name)
     if path.exists():
@@ -140,27 +157,31 @@ def read_json(name: str):
     else:
         data = default_for(name)
 
-    write_json(name, data, event_type='migrate')
+    if db_ready():
+        write_json(name, data, event_type='migrate')
     return data
 
 
 def write_json(name: str, data, event_type='write') -> None:
     encoded = json.dumps(data)
     now = datetime.now().isoformat(timespec='seconds')
-    with db_connect() as conn:
-        conn.execute(
-            '''
-            INSERT INTO documents (name, data, updated_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(name) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at
-            ''',
-            (name, encoded, now),
-        )
-        conn.execute(
-            'INSERT INTO events (type, detail, created_at) VALUES (?, ?, ?)',
-            (event_type, json.dumps({'document': name}), now),
-        )
-        conn.commit()
+    try:
+        with db_connect() as conn:
+            conn.execute(
+                '''
+                INSERT INTO documents (name, data, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(name) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at
+                ''',
+                (name, encoded, now),
+            )
+            conn.execute(
+                'INSERT INTO events (type, detail, created_at) VALUES (?, ?, ?)',
+                (event_type, json.dumps({'document': name}), now),
+            )
+            conn.commit()
+    except sqlite3.Error:
+        pass
     mirror_json_file(name, data)
 
 
