@@ -3,3 +3,5 @@ __pycache__/
 .env
 static/graphs/*.png
 data/*.tmp
+data/*.sqlite3
+data/*.sqlite3-*

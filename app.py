@@ -3,6 +3,7 @@
 import json
 import os
 import secrets
+import sqlite3
 from datetime import datetime, timedelta
 from functools import wraps
 from math import ceil
@@ -14,9 +15,25 @@ import matplotlib.pyplot as plt
 from flask import Flask, Response, flash, redirect, render_template, request, session, url_for
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = Path(os.environ.get('TRACKOS_DATA_DIR', BASE_DIR / 'data'))
+
+
+def resolve_data_dir():
+    preferred = Path(os.environ.get('TRACKOS_DATA_DIR', BASE_DIR / 'data'))
+    try:
+        preferred.mkdir(parents=True, exist_ok=True)
+        test_file = preferred / '.write-test'
+        test_file.write_text('ok', encoding='utf-8')
+        test_file.unlink(missing_ok=True)
+        return preferred
+    except OSError:
+        fallback = BASE_DIR / 'data'
+        fallback.mkdir(parents=True, exist_ok=True)
+        return fallback
+
+
+DATA_DIR = resolve_data_dir()
+DB_PATH = DATA_DIR / 'trackos.sqlite3'
 GRAPH_DIR = BASE_DIR / 'static' / 'graphs'
-DATA_DIR.mkdir(exist_ok=True)
 GRAPH_DIR.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)
@@ -58,22 +75,93 @@ def data_path(name: str) -> Path:
     return DATA_DIR / name
 
 
-def read_json(name: str):
-    path = data_path(name)
-    if not path.exists():
-        write_json(name, DEFAULTS[name])
-    try:
-        with path.open('r', encoding='utf-8') as f:
-            return json.load(f)
-    except json.JSONDecodeError:
-        return DEFAULTS[name].copy() if isinstance(DEFAULTS[name], dict) else list(DEFAULTS[name])
+def default_for(name: str):
+    value = DEFAULTS[name]
+    return value.copy() if isinstance(value, dict) else list(value)
 
 
-def write_json(name: str, data) -> None:
+def db_connect():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute('PRAGMA journal_mode=WAL')
+    conn.execute('PRAGMA busy_timeout=3000')
+    conn.execute(
+        '''
+        CREATE TABLE IF NOT EXISTS documents (
+            name TEXT PRIMARY KEY,
+            data TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        '''
+    )
+    conn.execute(
+        '''
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT NOT NULL,
+            detail TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        '''
+    )
+    conn.commit()
+    return conn
+
+
+def mirror_json_file(name: str, data) -> None:
     tmp = data_path(f'{name}.tmp')
     with tmp.open('w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
     tmp.replace(data_path(name))
+
+
+def log_event(event_type: str, detail) -> None:
+    with db_connect() as conn:
+        conn.execute(
+            'INSERT INTO events (type, detail, created_at) VALUES (?, ?, ?)',
+            (event_type, json.dumps(detail), datetime.now().isoformat(timespec='seconds')),
+        )
+        conn.commit()
+
+
+def read_json(name: str):
+    with db_connect() as conn:
+        row = conn.execute('SELECT data FROM documents WHERE name = ?', (name,)).fetchone()
+        if row:
+            return json.loads(row['data'])
+
+    path = data_path(name)
+    if path.exists():
+        try:
+            with path.open('r', encoding='utf-8') as f:
+                data = json.load(f)
+        except json.JSONDecodeError:
+            data = default_for(name)
+    else:
+        data = default_for(name)
+
+    write_json(name, data, event_type='migrate')
+    return data
+
+
+def write_json(name: str, data, event_type='write') -> None:
+    encoded = json.dumps(data)
+    now = datetime.now().isoformat(timespec='seconds')
+    with db_connect() as conn:
+        conn.execute(
+            '''
+            INSERT INTO documents (name, data, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at
+            ''',
+            (name, encoded, now),
+        )
+        conn.execute(
+            'INSERT INTO events (type, detail, created_at) VALUES (?, ?, ?)',
+            (event_type, json.dumps({'document': name}), now),
+        )
+        conn.commit()
+    mirror_json_file(name, data)
 
 
 def login_required(view):
