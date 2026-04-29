@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: trackos
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: TRACKOS_DATA_DIR
+        value: /var/data
+    disk:
+      name: trackos-data
+      mountPath: /var/data
+      sizeGB: 1

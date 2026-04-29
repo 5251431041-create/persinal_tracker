@@ -1,67 +1,279 @@
 {% extends "base.html" %}
 {% block content %}
-
-<h1>Gym Tracker</h1>
-
-<section class="card">
-  <h2>Log a Workout</h2>
-  <form method="POST" action="/gym">
-    <div class="form-row">
-      <label>Date<input type="date" name="date" required></label>
-      <label>Exercise<input type="text" name="exercise" placeholder="e.g. Bench Press" required></label>
+<header class="page-head gym-hero">
+  <div>
+    <p class="eyebrow">Weekly plan - fast logging</p>
+    <h1>Gym Tracker</h1>
+  </div>
+  <div class="gym-hero-actions">
+    <div class="gym-score">
+      <span>Total Volume</span>
+      <strong>{{ "{:,}".format(total_volume) }}</strong>
     </div>
-    <div class="form-row">
-      <label>Weight (kg)<input type="number" name="weight" step="0.5" placeholder="60" required></label>
-      <label>Reps<input type="number" name="reps" placeholder="8" required></label>
-      <label>Sets<input type="number" name="sets" placeholder="3" required></label>
+    {% if latest_session %}
+    <form method="POST" action="{{ url_for('gym_repeat_last') }}" class="repeat-form">
+      <input type="hidden" name="date" value="{{ today }}">
+      <button type="submit">Repeat Last</button>
+    </form>
+    {% endif %}
+  </div>
+</header>
+
+<section class="metric-grid gym-metrics">
+  <div class="metric-card pulse-card"><span>Workout Days</span><strong>{{ workout_days }}</strong><small>days logged</small></div>
+  <div class="metric-card"><span>Total Sets</span><strong>{{ total_sets }}</strong><small>sets completed</small></div>
+  <div class="metric-card"><span>Main Move</span><strong class="metric-word">{{ top_exercise if top_exercise else '-' }}</strong><small>most repeated</small></div>
+</section>
+
+<section class="panel workout-builder">
+  <div class="panel-title">
+    <div>
+      <h2>Log Workout</h2>
+      <p class="panel-subtitle">Load your weekly plan, tweak numbers, save the session.</p>
     </div>
-    <button type="submit">Save</button>
+    <button type="button" class="ghost-btn" id="add-exercise">+ Exercise</button>
+  </div>
+
+  <form method="POST" action="{{ url_for('gym') }}" id="workout-form">
+    <div class="workout-controls">
+      <label class="date-picker">Workout Day
+        <input type="date" name="date" value="{{ today }}" required>
+      </label>
+      <label class="date-picker">Use Weekly Plan
+        <select id="load-plan">
+          <option value="">Choose day</option>
+          {% for day in days %}
+          <option value="{{ day }}">{{ day }}{% if gym_plan[day] %} - {{ gym_plan[day]|length }} moves{% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="quick-zone">
+      <div class="quick-zone-title">
+        <span>Quick Add</span>
+        <small>tap any exercise</small>
+      </div>
+      <div class="exercise-picks">
+      {% for ex in exercise_options[:12] %}
+        <button type="button" class="chip" data-exercise="{{ ex }}">{{ ex }}</button>
+      {% endfor %}
+      </div>
+    </div>
+
+    <div id="exercise-list" class="exercise-list">
+      <div class="exercise-card">
+        <div class="exercise-card-head">
+          <span class="exercise-number">01</span>
+          <button type="button" class="mini-delete" aria-label="Remove exercise">Remove</button>
+        </div>
+        <div class="exercise-grid">
+          <label>Exercise<input type="text" name="exercise[]" list="exercise-options" placeholder="Tap quick add or type" required></label>
+          <label>Weight<input type="number" name="weight[]" step="0.5" min="0.5" placeholder="60" required></label>
+          <label>Reps<input type="number" name="reps[]" min="1" placeholder="8" required></label>
+          <label>Sets<input type="number" name="sets[]" min="1" placeholder="3" required></label>
+        </div>
+        <div class="row-volume">Volume: <strong>0</strong></div>
+      </div>
+    </div>
+
+    <datalist id="exercise-options">
+      {% for ex in exercise_options %}
+        <option value="{{ ex }}"></option>
+      {% endfor %}
+    </datalist>
+
+    <div class="builder-footer">
+      <div class="live-total"><span>Session Volume</span><strong id="session-volume">0</strong></div>
+      <button type="submit" id="save-session">Save Session</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel plan-builder">
+  <div class="panel-title">
+    <div>
+      <h2>Weekly Plan</h2>
+      <p class="panel-subtitle">Set this once. Load it every week and adjust only what changed.</p>
+    </div>
+    <button type="button" class="ghost-btn" id="add-plan-exercise">+ Plan Move</button>
+  </div>
+
+  <form method="POST" action="{{ url_for('gym_plan_save') }}" id="plan-form">
+    <label class="date-picker">Plan Day
+      <select name="day" id="plan-day">
+        {% for day in days %}
+        <option value="{{ day }}">{{ day }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <div id="plan-list" class="exercise-list">
+      <div class="exercise-card plan-row">
+        <div class="exercise-card-head">
+          <span class="exercise-number">01</span>
+          <button type="button" class="mini-delete" aria-label="Remove plan exercise">Remove</button>
+        </div>
+        <div class="exercise-grid">
+          <label>Exercise<input type="text" name="plan_exercise[]" list="exercise-options" placeholder="Bench Press"></label>
+          <label>Weight<input type="number" name="plan_weight[]" step="0.5" min="0.5" placeholder="60"></label>
+          <label>Reps<input type="number" name="plan_reps[]" min="1" placeholder="8"></label>
+          <label>Sets<input type="number" name="plan_sets[]" min="1" placeholder="3"></label>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit">Save Weekly Plan</button>
   </form>
 </section>
 
 {% if exercises %}
-<section class="card">
-  <h2>Progression Graph</h2>
-  <form method="GET" action="/gym/graph" class="inline-form">
-    <label>Exercise
-      <select name="exercise">
-        {% for ex in exercises %}
-          <option value="{{ ex }}">{{ ex }}</option>
-        {% endfor %}
-      </select>
-    </label>
+<section class="panel compact-panel">
+  <h2>Progress Graph</h2>
+  <form method="GET" action="{{ url_for('gym_graph') }}" class="inline-form">
+    <label>Exercise<select name="exercise">{% for ex in exercises %}<option value="{{ ex }}">{{ ex }}</option>{% endfor %}</select></label>
     <button type="submit">Show Graph</button>
   </form>
 </section>
 {% endif %}
 
-<section class="card">
-  <h2>Past Workouts</h2>
-  {% if logs %}
-  <table>
-    <thead>
-      <tr><th>Date</th><th>Exercise</th><th>Weight (kg)</th><th>Reps</th><th>Sets</th><th></th></tr>
-    </thead>
-    <tbody>
-      {% for entry in logs | reverse %}
-      <tr>
-        <td>{{ entry.date }}</td>
-        <td>{{ entry.exercise }}</td>
-        <td>{{ entry.weight }}</td>
-        <td>{{ entry.reps }}</td>
-        <td>{{ entry.sets }}</td>
-        <td>
-          <form method="POST" action="/gym/delete/{{ loop.index0 }}">
-            <button type="submit" class="btn-delete">X</button>
-          </form>
-        </td>
-      </tr>
+<details class="panel collapse-panel">
+  <summary>Workout Timeline</summary>
+  {% if grouped_sessions %}
+    <div class="session-stack">
+      {% for date, entries in grouped_sessions %}
+      <article class="session-card">
+        <div class="session-date">
+          <strong>{{ date }}</strong>
+          <span>{{ entries|length }} exercise{{ '' if entries|length == 1 else 's' }}</span>
+        </div>
+        <div class="session-exercises">
+          {% for entry_index, entry in entries %}
+          <div class="session-row editable-session">
+            <form method="POST" action="{{ url_for('gym_update', index=entry_index) }}" class="session-edit-form">
+              <input type="date" name="date" value="{{ entry.date }}" required>
+              <input type="text" name="exercise" value="{{ entry.exercise }}" list="exercise-options" required>
+              <input type="number" name="weight" value="{{ entry.weight }}" step="0.5" min="0.5" required>
+              <input type="number" name="reps" value="{{ entry.reps }}" min="1" required>
+              <input type="number" name="sets" value="{{ entry.sets }}" min="1" required>
+              <button type="submit" class="btn-small-action">Update</button>
+            </form>
+            <form method="POST" action="{{ url_for('gym_delete', index=entry_index) }}" class="session-delete-form">
+              <button class="btn-delete" type="submit">Delete</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+      </article>
       {% endfor %}
-    </tbody>
-  </table>
+    </div>
   {% else %}
-  <p class="empty">No workouts logged yet.</p>
+    <p class="empty">No workouts logged yet.</p>
   {% endif %}
-</section>
+</details>
 
+<script>
+const plans = {{ gym_plan|tojson }};
+const list = document.getElementById('exercise-list');
+const planList = document.getElementById('plan-list');
+const addButton = document.getElementById('add-exercise');
+const addPlanButton = document.getElementById('add-plan-exercise');
+const volume = document.getElementById('session-volume');
+const loadPlan = document.getElementById('load-plan');
+const planDay = document.getElementById('plan-day');
+const saveSession = document.getElementById('save-session');
+
+function renumber(container) {
+  [...container.querySelectorAll('.exercise-card')].forEach((card, index) => {
+    card.querySelector('.exercise-number').textContent = String(index + 1).padStart(2, '0');
+    card.querySelector('.mini-delete').disabled = container.children.length === 1;
+  });
+}
+
+function fillCard(card, entry, prefix = '') {
+  card.querySelector(`[name="${prefix}exercise[]"]`).value = entry.exercise || '';
+  card.querySelector(`[name="${prefix}weight[]"]`).value = entry.weight || '';
+  card.querySelector(`[name="${prefix}reps[]"]`).value = entry.reps || '';
+  card.querySelector(`[name="${prefix}sets[]"]`).value = entry.sets || '';
+}
+
+function updateVolume() {
+  let total = 0;
+  let completeRows = 0;
+  list.querySelectorAll('.exercise-card').forEach(card => {
+    const exercise = card.querySelector('[name="exercise[]"]').value.trim();
+    const weight = Number(card.querySelector('[name="weight[]"]').value || 0);
+    const reps = Number(card.querySelector('[name="reps[]"]').value || 0);
+    const sets = Number(card.querySelector('[name="sets[]"]').value || 0);
+    const rowTotal = weight * reps * sets;
+    total += rowTotal;
+    if (exercise && weight > 0 && reps > 0 && sets > 0) completeRows += 1;
+    card.querySelector('.row-volume strong').textContent = Math.round(rowTotal).toLocaleString();
+  });
+  volume.textContent = Math.round(total).toLocaleString();
+  saveSession.disabled = completeRows === 0;
+}
+
+function clearCards(container) {
+  while (container.children.length > 1) container.lastElementChild.remove();
+  container.firstElementChild.querySelectorAll('input').forEach(input => input.value = '');
+}
+
+function addExercise(name = '', target = list, prefix = '') {
+  const emptyCard = [...target.querySelectorAll('.exercise-card')].find(card => !card.querySelector(`[name="${prefix}exercise[]"]`).value);
+  const card = emptyCard || target.firstElementChild.cloneNode(true);
+  if (!emptyCard) {
+    card.querySelectorAll('input').forEach(input => input.value = '');
+    target.appendChild(card);
+  }
+  card.querySelector(`[name="${prefix}exercise[]"]`).value = name;
+  renumber(target);
+  updateVolume();
+  const next = card.querySelector(`[name="${prefix}weight[]"]`) || card.querySelector(`[name="${prefix}exercise[]"]`);
+  next.focus();
+  return card;
+}
+
+function loadEntries(entries, target, prefix = '') {
+  clearCards(target);
+  if (!entries.length) {
+    renumber(target);
+    updateVolume();
+    return;
+  }
+  entries.forEach((entry, index) => {
+    const card = index === 0 ? target.firstElementChild : target.firstElementChild.cloneNode(true);
+    if (index > 0) target.appendChild(card);
+    fillCard(card, entry, prefix);
+  });
+  renumber(target);
+  updateVolume();
+}
+
+addButton.addEventListener('click', () => addExercise());
+addPlanButton.addEventListener('click', () => addExercise('', planList, 'plan_'));
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => addExercise(chip.dataset.exercise));
+});
+loadPlan.addEventListener('change', () => {
+  const entries = plans[loadPlan.value] || [];
+  loadEntries(entries, list);
+});
+planDay.addEventListener('change', () => {
+  const entries = plans[planDay.value] || [];
+  loadEntries(entries, planList, 'plan_');
+});
+list.addEventListener('input', updateVolume);
+[list, planList].forEach(container => {
+  container.addEventListener('click', event => {
+    if (!event.target.classList.contains('mini-delete')) return;
+    if (container.children.length > 1) event.target.closest('.exercise-card').remove();
+    renumber(container);
+    updateVolume();
+  });
+});
+loadEntries(plans[planDay.value] || [], planList, 'plan_');
+renumber(list);
+updateVolume();
+</script>
 {% endblock %}

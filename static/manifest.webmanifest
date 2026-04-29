@@ -1,0 +1,21 @@
+﻿{
+  "name": "TrackOS Personal Tracker",
+  "short_name": "TrackOS",
+  "description": "Gym, attendance, timetable, and study tracker.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#070a12",
+  "theme_color": "#070a12",
+  "categories": ["productivity", "health", "education"],
+  "icons": [
+    {
+      "src": "/static/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

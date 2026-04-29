@@ -1,26 +1,43 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Tracker</title>
+  <meta name="theme-color" content="#111827">
+  <title>{{ title|default('TrackOS') }}</title>
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-
 <nav>
-  <span class="nav-brand">My Tracker</span>
+  <a class="nav-brand" href="{{ url_for('dashboard') }}">TrackOS</a>
   <div class="nav-links">
-    <a href="/gym"        {% if request.path.startswith('/gym')        %}class="active"{% endif %}>Gym</a>
-    <a href="/attendance" {% if request.path.startswith('/attendance') %}class="active"{% endif %}>Attendance</a>
-    <a href="/study"      {% if request.path.startswith('/study')      %}class="active"{% endif %}>Study</a>
+    <a href="{{ url_for('dashboard') }}" {% if request.endpoint == 'dashboard' %}class="active"{% endif %}>Home</a>
+    <a href="{{ url_for('gym') }}" {% if request.path.startswith('/gym') %}class="active"{% endif %}>Gym</a>
+    <a href="{{ url_for('attendance') }}" {% if request.path.startswith('/attendance') %}class="active"{% endif %}>Attendance</a>
+    <a href="{{ url_for('study') }}" {% if request.path.startswith('/study') %}class="active"{% endif %}>Study</a>
+    <a href="{{ url_for('settings') }}" {% if request.endpoint == 'settings' %}class="active"{% endif %}>Settings</a>
+    <a href="{{ url_for('logout') }}">Logout</a>
   </div>
 </nav>
 
 <main>
-  {% block content %}
-  {% endblock %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-stack">
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
 </main>
 
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register("{{ url_for('static', filename='sw.js') }}").catch(() => {});
+}
+</script>
 </body>
 </html>

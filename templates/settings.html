@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Control center</p>
+    <h1>Settings</h1>
+  </div>
+</header>
+
+<section class="settings-grid">
+  <a class="panel settings-card" href="{{ url_for('timetable') }}">
+    <h2>Attendance Timetable</h2>
+    <p>Change classes per weekday.</p>
+  </a>
+  <a class="panel settings-card" href="{{ url_for('gym') }}">
+    <h2>Gym Weekly Plan</h2>
+    <p>Edit reusable workout days.</p>
+  </a>
+  <a class="panel settings-card" href="{{ url_for('export_data') }}">
+    <h2>Export Backup</h2>
+    <p>Download all app data as JSON.</p>
+  </a>
+</section>
+{% endblock %}

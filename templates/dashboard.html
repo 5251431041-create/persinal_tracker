@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-head app-hero">
+  <div>
+    <p class="eyebrow">{{ today_name }} - {{ today }}</p>
+    <h1>Today</h1>
+  </div>
+  <a class="btn-primary" href="{{ url_for('attendance', date=today) }}">Log Attendance</a>
+</header>
+
+<section class="today-grid">
+  <article class="panel today-card">
+    <div class="panel-title"><h2>Classes</h2></div>
+    <strong>{{ today_classes }}</strong>
+    {% if today_attendance %}
+      <p>{{ today_attendance.attended }} / {{ today_attendance.scheduled }} marked.</p>
+    {% else %}
+      <p>{{ 'Ready to mark today.' if today_classes else 'No classes scheduled today.' }}</p>
+    {% endif %}
+    <a href="{{ url_for('attendance', date=today) }}">Open Attendance</a>
+  </article>
+
+  <article class="panel today-card">
+    <div class="panel-title"><h2>Workout</h2></div>
+    <strong>{{ today_plan|length }}</strong>
+    <p>{{ 'planned exercises today.' if today_plan else 'No gym plan for today.' }}</p>
+    <a href="{{ url_for('gym') }}">Open Gym</a>
+  </article>
+
+  <article class="panel today-card">
+    <div class="panel-title"><h2>Study Due</h2></div>
+    <strong>{{ study_due|length }}</strong>
+    <p>{{ 'topics need progress.' if study_due else 'Nothing overdue.' }}</p>
+    <a href="{{ url_for('study') }}">Open Study</a>
+  </article>
+</section>
+
+<section class="metric-grid">
+  <a class="metric-card" href="{{ url_for('attendance') }}">
+    <span>Attendance</span>
+    <strong class="{% if overall_pct >= 75 %}good{% else %}danger{% endif %}">{{ overall_pct }}%</strong>
+    <small>{% if overall_pct < 75 and total_scheduled %}{{ classes_needed }} classes to 75%{% elif total_scheduled %}{{ safe_misses }} safe misses{% else %}not started{% endif %}</small>
+  </a>
+  <a class="metric-card" href="{{ url_for('study') }}">
+    <span>Study</span>
+    <strong>{{ study_pct }}%</strong>
+    <small>{{ done_lessons }} / {{ total_lessons }} lessons</small>
+  </a>
+  <a class="metric-card" href="{{ url_for('gym') }}">
+    <span>Gym</span>
+    <strong>{{ gym_count }}</strong>
+    <small>workouts logged</small>
+  </a>
+</section>
+
+<section class="split-grid">
+  <div class="panel">
+    <div class="panel-title"><h2>This Week</h2></div>
+    <div class="week-strip">
+      {% for d in week_dates %}
+      <span class="{% if d in gym_week_days %}done{% endif %}">{{ d[5:] }}</span>
+      {% endfor %}
+    </div>
+    <div class="goal-list">
+      <div><span>Gym</span><strong>{{ gym_week_days|length }} / {{ gym_goal }} days</strong></div>
+      <div><span>Attendance</span><strong>{{ week_attendance_pct }}%</strong><small>{{ week_attended }} / {{ week_scheduled }}</small></div>
+      <div><span>Study</span><strong>{{ study_week_lessons }} / {{ study_goal }} lessons</strong></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title"><h2>Streaks</h2></div>
+    <div class="streak-grid">
+      <div><strong>{{ gym_streak }}</strong><span>Gym</span></div>
+      <div><strong>{{ study_streak }}</strong><span>Study</span></div>
+      <div><strong>{{ attendance_streak }}</strong><span>Full Attendance</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="split-grid">
+  <div class="panel">
+    <div class="panel-title"><h2>Insights</h2></div>
+    {% if insights %}
+      <div class="insight-list">
+        {% for item in insights %}
+        <p>{{ item }}</p>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty">No alerts right now.</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-title"><h2>Quick Actions</h2></div>
+    <div class="action-grid">
+      <a href="{{ url_for('gym') }}">Start Workout</a>
+      <a href="{{ url_for('attendance', date=today) }}">Mark Attendance</a>
+      <a href="{{ url_for('study') }}">Study Topic</a>
+      <a href="{{ url_for('settings') }}">Settings</a>
+    </div>
+  </div>
+</section>
+
+<details class="panel collapse-panel">
+  <summary>Recent workouts</summary>
+  {% if latest_gym %}
+    <div class="list-stack">
+      {% for entry in latest_gym %}
+        <div class="list-row">
+          <div><strong>{{ entry.exercise }}</strong><small>{{ entry.date }}</small></div>
+          <span>{{ entry.weight }} kg x {{ entry.reps }} x {{ entry.sets }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="empty">No workouts yet.</p>
+  {% endif %}
+</details>
+{% endblock %}
