@@ -46,6 +46,7 @@ def resolve_data_dir():
 
 DATA_SOURCE, DATA_DIR = resolve_data_dir()
 DB_PATH = DATA_DIR / 'trackos.sqlite3'
+DATABASE_URL = os.environ.get('DATABASE_URL', '')
 GRAPH_DIR = BASE_DIR / 'static' / 'graphs'
 GRAPH_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -94,6 +95,33 @@ def default_for(name: str):
 
 
 def db_connect():
+    if DATABASE_URL:
+        import psycopg
+        from psycopg.rows import dict_row
+
+        conn = psycopg.connect(DATABASE_URL, row_factory=dict_row)
+        conn.execute(
+            '''
+            CREATE TABLE IF NOT EXISTS documents (
+                name TEXT PRIMARY KEY,
+                data TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            '''
+        )
+        conn.execute(
+            '''
+            CREATE TABLE IF NOT EXISTS events (
+                id BIGSERIAL PRIMARY KEY,
+                type TEXT NOT NULL,
+                detail TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            '''
+        )
+        conn.commit()
+        return conn
+
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA journal_mode=WAL')
@@ -125,7 +153,7 @@ def db_ready():
     try:
         with db_connect():
             return True
-    except sqlite3.Error:
+    except Exception:
         return False
 
 
@@ -138,18 +166,20 @@ def document_counts():
 
 
 def storage_status():
+    using_cloud_db = bool(DATABASE_URL)
     persistent = DATA_SOURCE in {'env', 'render_disk'} and str(DATA_DIR) not in {
         str(BASE_DIR / 'data'),
         '/opt/render/project/src/data',
     }
     return {
-        'data_source': DATA_SOURCE,
+        'data_source': 'postgres' if using_cloud_db else DATA_SOURCE,
         'data_dir': str(DATA_DIR),
-        'db_path': str(DB_PATH),
+        'db_path': 'DATABASE_URL' if using_cloud_db else str(DB_PATH),
         'db_ready': db_ready(),
-        'persistent': persistent,
+        'persistent': using_cloud_db or persistent,
         'counts': document_counts(),
         'render_service': bool(os.environ.get('RENDER')),
+        'using_cloud_db': using_cloud_db,
     }
 
 
@@ -167,21 +197,25 @@ def log_event(event_type: str, detail) -> None:
     try:
         with db_connect() as conn:
             conn.execute(
-                'INSERT INTO events (type, detail, created_at) VALUES (?, ?, ?)',
+                db_sql('INSERT INTO events (type, detail, created_at) VALUES (?, ?, ?)'),
                 (event_type, json.dumps(detail), datetime.now().isoformat(timespec='seconds')),
             )
             conn.commit()
-    except sqlite3.Error:
+    except Exception:
         pass
+
+
+def db_sql(sql):
+    return sql.replace('?', '%s') if DATABASE_URL else sql
 
 
 def read_json(name: str):
     try:
         with db_connect() as conn:
-            row = conn.execute('SELECT data FROM documents WHERE name = ?', (name,)).fetchone()
+            row = conn.execute(db_sql('SELECT data FROM documents WHERE name = ?'), (name,)).fetchone()
             if row:
                 return json.loads(row['data'])
-    except sqlite3.Error:
+    except Exception:
         pass
 
     path = data_path(name)
@@ -205,19 +239,19 @@ def write_json(name: str, data, event_type='write') -> None:
     try:
         with db_connect() as conn:
             conn.execute(
-                '''
+                db_sql('''
                 INSERT INTO documents (name, data, updated_at)
                 VALUES (?, ?, ?)
                 ON CONFLICT(name) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at
-                ''',
+                '''),
                 (name, encoded, now),
             )
             conn.execute(
-                'INSERT INTO events (type, detail, created_at) VALUES (?, ?, ?)',
+                db_sql('INSERT INTO events (type, detail, created_at) VALUES (?, ?, ?)'),
                 (event_type, json.dumps({'document': name}), now),
             )
             conn.commit()
-    except sqlite3.Error:
+    except Exception:
         pass
     mirror_json_file(name, data)
 

@@ -33,6 +33,6 @@
 
 <section class="panel">
   <h2>Fix For Render</h2>
-  <p class="empty">Use a persistent disk mounted at <strong>/var/data</strong>, then set <strong>TRACKOS_DATA_DIR=/var/data</strong>. If Render does not allow a disk on your plan, the hosted beta cannot permanently save data there.</p>
+  <p class="empty">Best fix: add a Postgres database and set <strong>DATABASE_URL</strong>. Disk fix: use a persistent disk mounted at <strong>/var/data</strong> and set <strong>TRACKOS_DATA_DIR=/var/data</strong>.</p>
 </section>
 {% endblock %}

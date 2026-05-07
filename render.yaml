@@ -11,6 +11,8 @@ services:
         sync: false
       - key: TRACKOS_DATA_DIR
         value: /var/data
+      - key: DATABASE_URL
+        sync: false
     disk:
       name: trackos-data
       mountPath: /var/data
