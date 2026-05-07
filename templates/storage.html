@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <p class="eyebrow">System check</p>
+    <h1>Storage Health</h1>
+  </div>
+</header>
+
+<section class="panel {% if not storage.persistent %}danger-panel{% endif %}">
+  <h2>Status</h2>
+  {% if storage.persistent %}
+    <p class="health-line good">Persistent storage is active.</p>
+  {% else %}
+    <p class="health-line danger">Data may disappear after Render restarts or redeploys.</p>
+  {% endif %}
+  <div class="detail-grid">
+    <div><span>Source</span><strong>{{ storage.data_source }}</strong></div>
+    <div><span>SQLite</span><strong>{{ 'Ready' if storage.db_ready else 'Not ready' }}</strong></div>
+    <div><span>Render</span><strong>{{ 'Yes' if storage.render_service else 'No' }}</strong></div>
+  </div>
+  <p class="path-text">{{ storage.data_dir }}</p>
+</section>
+
+<section class="panel">
+  <h2>Data Counts</h2>
+  <div class="detail-grid">
+    {% for name, count in storage.counts.items() %}
+      <div><span>{{ name }}</span><strong>{{ count }}</strong></div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Fix For Render</h2>
+  <p class="empty">Use a persistent disk mounted at <strong>/var/data</strong>, then set <strong>TRACKOS_DATA_DIR=/var/data</strong>. If Render does not allow a disk on your plan, the hosted beta cannot permanently save data there.</p>
+</section>
+{% endblock %}

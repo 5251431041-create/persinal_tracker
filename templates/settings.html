@@ -8,6 +8,10 @@
 </header>
 
 <section class="settings-grid">
+  <a class="panel settings-card {% if not storage.persistent %}danger-card{% endif %}" href="{{ url_for('storage') }}">
+    <h2>Storage Health</h2>
+    <p>{% if storage.persistent %}Persistent storage active.{% else %}Temporary storage risk detected.{% endif %}</p>
+  </a>
   <a class="panel settings-card" href="{{ url_for('timetable') }}">
     <h2>Attendance Timetable</h2>
     <p>Change classes per weekday.</p>

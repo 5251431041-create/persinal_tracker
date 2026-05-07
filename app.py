@@ -17,21 +17,34 @@ from flask import Flask, Response, flash, redirect, render_template, request, se
 BASE_DIR = Path(__file__).resolve().parent
 
 
-def resolve_data_dir():
-    preferred = Path(os.environ.get('TRACKOS_DATA_DIR', BASE_DIR / 'data'))
+def writable_dir(path):
     try:
-        preferred.mkdir(parents=True, exist_ok=True)
-        test_file = preferred / '.write-test'
+        path.mkdir(parents=True, exist_ok=True)
+        test_file = path / '.write-test'
         test_file.write_text('ok', encoding='utf-8')
         test_file.unlink(missing_ok=True)
-        return preferred
+        return True
     except OSError:
-        fallback = BASE_DIR / 'data'
-        fallback.mkdir(parents=True, exist_ok=True)
-        return fallback
+        return False
 
 
-DATA_DIR = resolve_data_dir()
+def resolve_data_dir():
+    candidates = []
+    configured = os.environ.get('TRACKOS_DATA_DIR')
+    if configured:
+        candidates.append(('env', Path(configured)))
+    if os.environ.get('RENDER') or os.name != 'nt':
+        candidates.append(('render_disk', Path('/var/data')))
+    candidates.append(('local', BASE_DIR / 'data'))
+    for source, path in candidates:
+        if writable_dir(path):
+            return source, path
+    fallback = BASE_DIR / 'data'
+    fallback.mkdir(parents=True, exist_ok=True)
+    return 'fallback', fallback
+
+
+DATA_SOURCE, DATA_DIR = resolve_data_dir()
 DB_PATH = DATA_DIR / 'trackos.sqlite3'
 GRAPH_DIR = BASE_DIR / 'static' / 'graphs'
 GRAPH_DIR.mkdir(parents=True, exist_ok=True)
@@ -114,6 +127,30 @@ def db_ready():
             return True
     except sqlite3.Error:
         return False
+
+
+def document_counts():
+    counts = {}
+    for filename in DEFAULTS:
+        data = read_json(filename)
+        counts[filename] = len(data) if isinstance(data, list) else len(data.keys())
+    return counts
+
+
+def storage_status():
+    persistent = DATA_SOURCE in {'env', 'render_disk'} and str(DATA_DIR) not in {
+        str(BASE_DIR / 'data'),
+        '/opt/render/project/src/data',
+    }
+    return {
+        'data_source': DATA_SOURCE,
+        'data_dir': str(DATA_DIR),
+        'db_path': str(DB_PATH),
+        'db_ready': db_ready(),
+        'persistent': persistent,
+        'counts': document_counts(),
+        'render_service': bool(os.environ.get('RENDER')),
+    }
 
 
 def mirror_json_file(name: str, data) -> None:
@@ -385,7 +422,13 @@ def dashboard():
 @app.route('/settings')
 @login_required
 def settings():
-    return render_template('settings.html')
+    return render_template('settings.html', storage=storage_status())
+
+
+@app.route('/storage')
+@login_required
+def storage():
+    return render_template('storage.html', storage=storage_status())
 
 
 @app.route('/export')
